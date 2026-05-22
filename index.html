@@ -69,7 +69,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     </div>
   </div>
   <div class="status-line" id="statusBar">加载模型中…</div>
-  <div class="ver">v2025.05.22-3</div>
+  <div class="ver">v2025.05.22-4</div>
   <div class="actions" id="actions" style="display:none">
     <button class="action-btn" id="copyBtn" disabled>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制
@@ -82,7 +82,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 <div class="toast" id="toast"></div>
 <script type="module">
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js';
-const VERSION = '250522-3';
+const VERSION = '250522-4';
 
 const $ = id => document.getElementById(id);
 const tDisplay = $('textDisplay'), centerArea = $('centerArea'), micBtn = $('micEnableBtn');
@@ -105,10 +105,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 // ── Browser ──
 if(!navigator.mediaDevices||!window.MediaRecorder){unsupported.style.display='block';statusBar.textContent='浏览器不支持录音'}
 else {tDisplay.classList.add('placeholder')}
-
-// ── Traditional → Simplified ──
-const t2s=new Map([["說","说"],["話","话"],["嗎","吗"],["麼","么"],["們","们"],["這","这"],["那","那"],["會","会"],["個","个"],["來","来"],["對","对"],["時","时"],["現","现"],["要","要"],["能","能"],["沒","没"],["過","过"],["讓","让"],["著","着"],["裡","里"],["後","后"],["開","开"],["關","关"],["頭","头"],["實","实"],["體","体"],["點","点"],["學","学"],["覺","觉"],["聽","听"],["聲","声"],["樣","样"],["種","种"],["經","经"],["機","机"],["氣","气"],["愛","爱"],["給","给"],["從","从"],["當","当"],["還","还"],["將","将"],["應","应"],["總","总"],["動","动"],["進","进"],["發","发"],["問","问"],["間","间"],["見","见"],["門","门"],["為","为"],["因","因"],["想","想"],["知","知"],["前","前"],["可","可"],["回","回"],["國","国"],["長","长"],["處","处"],["電","电"],["風","风"],["語","语"],["萬","万"],["場","场"],["邊","边"],["變","变"],["結","结"],["節","节"],["寫","写"],["媽","妈"],["認","认"],["識","识"],["記","记"],["帶","带"],["錢","钱"],["買","买"],["賣","卖"],["請","请"],["謝","谢"],["讀","读"],["誰","谁"],["錯","错"],["夠","够"],["塊","块"],["幹","干"],["幾","几"],["兩","两"],["無","无"],["與","与"],["紅","红"],["綠","绿"],["藍","蓝"],["車","车"],["飛","飞"],["馬","马"],["魚","鱼"],["鳥","鸟"],["飯","饭"],["飲","饮"]]);
-function toSimp(s){let o='';for(const c of s)o+=t2s.get(c)||c;return o}
 
 // ── Load model ──
 env.allowLocalModels=false;env.useBrowserCache=true;
@@ -201,19 +197,25 @@ async function runTranscription(blob){
   try{
     const buf=await blob.arrayBuffer();const ctx=new AudioContext();
     let audio=await ctx.decodeAudioData(buf);await ctx.close();
-    const r=await transcriber(resample(audio),{language:currentLang,task:'transcribe',chunk_length_s:30,stride_length_s:5});
-    currentText=currentLang==='zh'?toSimp(r.text.trim()):r.text.trim();
+    const r=await transcriber(resample(audio),{
+      language:currentLang,
+      task:'transcribe',
+      generate_kwargs:{suppress_tokens:[]}
+    });
+    console.log('raw:', JSON.stringify(r.text));
+    currentText=r.text.trim();
   }catch(err){
     console.error(err);
     try{
       const buf=await blob.arrayBuffer();const ctx=new AudioContext();
       let audio=await ctx.decodeAudioData(buf);await ctx.close();
-      const r=await transcriber(resample(audio),{task:'transcribe',chunk_length_s:30,stride_length_s:5});
-      currentText=currentLang==='zh'?toSimp(r.text.trim()):r.text.trim();
+      const r=await transcriber(resample(audio),{task:'transcribe',generate_kwargs:{suppress_tokens:[]}});
+      currentText=r.text.trim();
     }catch(e2){console.error(e2);showToast('转写失败，请重试')}
   }
   updateUI();
 }
+
 function resample(buf){
   const len=buf.length,sr=buf.sampleRate,ch=buf.numberOfChannels;
   const mono=new Float32Array(len);
