@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>清除缓存</title>
+<style>
+  body {
+    font-family: -apple-system, sans-serif; background: #000; color: #fff;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100vh; margin: 0; padding: 24px;
+    text-align: center; gap: 16px;
+  }
+  .check { color: #30d158; font-size: 48px; }
+</style>
+</head>
+<body>
+<div id="status">正在清理...</div>
+<script>
+(async () => {
+  const el = document.getElementById('status');
+  const steps = [];
+
+  // 1. Unregister all service workers
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const reg of regs) {
+      const ok = await reg.unregister();
+      steps.push(`SW ${ok ? '已注销' : '注销失败'}`);
+    }
+    if (!regs.length) steps.push('无 SW 残留');
+  } catch (e) {
+    steps.push('SW 清理出错: ' + e.message);
+  }
+
+  // 2. Delete all Cache API caches
+  try {
+    const keys = await caches.keys();
+    for (const key of keys) {
+      await caches.delete(key);
+      steps.push(`Cache "${key}" 已删除`);
+    }
+    if (!keys.length) steps.push('无 Cache 残留');
+  } catch (e) {
+    steps.push('Cache 清理出错: ' + e.message);
+  }
+
+  // 3. Delete all IndexedDB databases (where Transformers.js stores models)
+  try {
+    if (indexedDB.databases) {
+      const dbs = await indexedDB.databases();
+      for (const db of dbs) {
+        await new Promise((resolve, reject) => {
+          const req = indexedDB.deleteDatabase(db.name);
+          req.onsuccess = resolve;
+          req.onerror = reject;
+        });
+        steps.push(`DB "${db.name}" 已删除`);
+      }
+      if (!dbs.length) steps.push('无 IndexedDB 残留');
+    } else {
+      // Fallback: delete known Transformers.js DBs
+      for (const name of ['transformers-cache', 'transformers']) {
+        await new Promise((resolve, reject) => {
+          const req = indexedDB.deleteDatabase(name);
+          req.onsuccess = resolve;
+          req.onerror = reject;
+        });
+      }
+      steps.push('已尝试删除常见模型数据库');
+    }
+  } catch (e) {
+    steps.push('IndexedDB 清理出错: ' + e.message);
+  }
+
+  // 4. Clear localStorage
+  try {
+    const count = localStorage.length;
+    localStorage.clear();
+    steps.push(`localStorage 已清除 (${count} 项)`);
+  } catch (e) {
+    steps.push('localStorage 清理出错: ' + e.message);
+  }
+
+  el.innerHTML = `<div class="check">&#10003;</div>清理完成<br><br>${steps.join('<br>')}<br><br>
+    现在去设置 → Safari → 高级 → 网站数据<br>再删一次 voiceclip 即可彻底清除<br><br>
+    <small style="color:#8e8e93">关掉此页面后不会再产生新数据</small>`;
+})();
+</script>
+</body>
+</html>
