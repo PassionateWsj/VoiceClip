@@ -1,192 +1,49 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="语音转录">
-<meta name="theme-color" content="#000000">
-<link rel="manifest" href="/manifest.json">
-<title>语音转录</title>
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="语音转录"><meta name="theme-color" content="#000000"><link rel="manifest" href="/manifest.json"><title>语音转录</title>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  html, body {
-    height: 100%; overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-    background: #000; color: #fff;
-    -webkit-tap-highlight-color: transparent;
-    -webkit-user-select: none; user-select: none;
-    -webkit-touch-callout: none;
-  }
-
-  .app {
-    display: flex; flex-direction: column; align-items: center;
-    height: 100%;
-    padding: env(safe-area-inset-top, 16px) 24px env(safe-area-inset-bottom, 24px);
-  }
-
-  /* ── Top bar ─────────────────────────────── */
-  .top-bar {
-    width: 100%; display: flex; align-items: center;
-    justify-content: space-between; flex-shrink: 0;
-    padding-bottom: 8px;
-  }
-  .lang-bar {
-    display: flex; gap: 2px; background: #1c1c1e; border-radius: 9px; padding: 2px;
-  }
-  .lang-btn {
-    padding: 7px 14px; border: none; border-radius: 7px;
-    font-size: 13px; font-weight: 600;
-    background: transparent; color: #8e8e93;
-    transition: all 0.2s;
-  }
-  .lang-btn.active { background: #3a3a3c; color: #fff; }
-
-  /* ── Text display ────────────────────────── */
-  .text-area {
-    flex: 1; width: 100%; overflow-y: auto;
-    display: flex; align-items: center; justify-content: center;
-    padding: 20px 0; min-height: 0;
-  }
-  .text-content {
-    font-size: 24px; line-height: 1.6; text-align: center;
-    word-break: break-word; color: #fff; max-width: 100%;
-    letter-spacing: 0.01em;
-    transition: opacity 0.3s ease;
-  }
-  .text-content.placeholder { color: #48484a; font-size: 16px; font-weight: 400; }
-
-  /* ── Status line ─────────────────────────── */
-  .status-line {
-    flex-shrink: 0; text-align: center;
-    font-size: 12px; color: #48484a;
-    min-height: 20px; padding-bottom: 8px;
-    transition: color 0.3s;
-  }
-  .status-line.loading { color: #ff9f0a; }
-  .status-line.ready { color: #30d158; }
-
-  /* ── Center button area ──────────────────── */
-  .center-area {
-    flex-shrink: 0; display: flex; flex-direction: column;
-    align-items: center; gap: 24px; padding-bottom: 16px;
-  }
-
-  /* Mic enable button */
-  .mic-enable-btn {
-    padding: 14px 36px; border-radius: 12px; border: none;
-    font-size: 17px; font-weight: 600;
-    background: #007aff; color: #fff;
-    transition: transform 0.15s, opacity 0.15s;
-    touch-action: manipulation;
-  }
-  .mic-enable-btn:active { transform: scale(0.96); opacity: 0.85; }
-
-  /* Recording button — outer ring */
-  .btn-outer {
-    width: 140px; height: 140px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    transition: transform 0.25s cubic-bezier(.25,.1,.25,1), box-shadow 0.3s;
-  }
-  .btn-outer.idle {
-    box-shadow: 0 0 0 3px #1c1c1e;
-  }
-  .btn-outer.recording {
-    box-shadow: 0 0 0 3px #ff3b30, 0 0 32px rgba(255,59,48,0.35);
-    animation: breathe 1.4s ease-in-out infinite;
-  }
-  .btn-outer.processing {
-    box-shadow: 0 0 0 3px #ff9f0a, 0 0 24px rgba(255,159,10,0.3);
-  }
-  @keyframes breathe {
-    0%, 100% { transform: scale(1); box-shadow: 0 0 0 3px #ff3b30, 0 0 32px rgba(255,59,48,0.35); }
-    50%      { transform: scale(1.04); box-shadow: 0 0 0 5px #ff3b30, 0 0 48px rgba(255,59,48,0.45); }
-  }
-
-  /* Inner button */
-  .btn-inner {
-    width: 124px; height: 124px; border-radius: 50%;
-    border: none; color: #fff;
-    font-size: 16px; font-weight: 600;
-    display: flex; align-items: center; justify-content: center;
-    touch-action: manipulation;
-    transition: background 0.25s, transform 0.15s;
-  }
-  .idle .btn-inner {
-    background: #1c1c1e;
-  }
-  .idle .btn-inner:active {
-    transform: scale(0.94);
-  }
-  .recording .btn-inner {
-    background: #ff3b30;
-  }
-  .processing .btn-inner {
-    background: #ff9f0a;
-  }
-
-  .mic-svg, .check-svg {
-    width: 28px; height: 28px; margin-bottom: 4px;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .spinner {
-    width: 32px; height: 32px;
-    border: 3px solid rgba(255,255,255,0.25);
-    border-top-color: #fff; border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  .hint-text {
-    font-size: 13px; color: #48484a; min-height: 20px;
-    transition: color 0.3s;
-  }
-  .recording  .hint-text { color: #ff453a; }
-  .processing .hint-text { color: #ff9f0a; }
-
-  /* ── Action buttons ──────────────────────── */
-  .actions {
-    display: flex; gap: 10px; flex-shrink: 0;
-  }
-  .action-btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 13px 22px; border-radius: 26px; border: none;
-    font-size: 15px; font-weight: 590;
-    background: #1c1c1e; color: #fff;
-    transition: transform 0.15s, opacity 0.15s;
-    touch-action: manipulation;
-  }
-  .action-btn:active { transform: scale(0.95); opacity: 0.8; }
-  .action-btn:disabled { opacity: 0.3; pointer-events: none; }
-  .action-btn.primary  { background: #007aff; }
-  .action-btn.primary:active { opacity: 0.85; }
-
-  /* ── Toast ───────────────────────────────── */
-  .toast {
-    position: fixed; bottom: 120px; left: 50%;
-    transform: translateX(-50%) translateY(12px);
-    background: rgba(44,44,46,0.95);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    color: #fff; padding: 10px 22px; border-radius: 22px;
-    font-size: 14px; font-weight: 500;
-    opacity: 0; pointer-events: none;
-    transition: all 0.28s cubic-bezier(.25,.1,.25,1); z-index: 100;
-  }
-  .toast.show {
-    opacity: 1; transform: translateX(-50%) translateY(0);
-  }
-
-  .unsupported {
-    display: none; text-align: center;
-    color: #ff3b30; font-size: 15px;
-    padding: 20px 32px; line-height: 1.6;
-  }
-</style>
-</head>
-<body>
-
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif;background:#000;color:#fff;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.app{display:flex;flex-direction:column;align-items:center;height:100%;padding:env(safe-area-inset-top,16px) 24px env(safe-area-inset-bottom,24px)}
+.top-bar{width:100%;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;padding-bottom:8px}
+.lang-bar{display:flex;gap:2px;background:#1c1c1e;border-radius:9px;padding:2px}
+.lang-btn{padding:7px 14px;border:none;border-radius:7px;font-size:13px;font-weight:600;background:0 0;color:#8e8e93;transition:all .2s}
+.lang-btn.active{background:#3a3a3c;color:#fff}
+.text-area{flex:1;width:100%;overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:20px 0;min-height:0}
+.text-content{font-size:24px;line-height:1.6;text-align:center;word-break:break-word;color:#fff;max-width:100%;letter-spacing:.01em;transition:opacity .3s}
+.text-content.placeholder{color:#48484a;font-size:16px;font-weight:400}
+.status-line{flex-shrink:0;text-align:center;font-size:12px;color:#48484a;min-height:20px;padding-bottom:8px;transition:color .3s}
+.status-line.loading{color:#ff9f0a}
+.status-line.ready{color:#30d158}
+.ver{font-size:10px;color:#2c2c2e}
+.center-area{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:24px;padding-bottom:16px}
+.mic-enable-btn{padding:14px 36px;border-radius:12px;border:none;font-size:17px;font-weight:600;background:#007aff;color:#fff;transition:transform .15s,opacity .15s;touch-action:manipulation}
+.mic-enable-btn:active{transform:scale(.96);opacity:.85}
+.btn-outer{width:140px;height:140px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:transform .12s,box-shadow .12s}
+.btn-outer.idle{box-shadow:0 0 0 3px #1c1c1e}
+.btn-outer.recording{box-shadow:0 0 0 3px #ff3b30,0 0 32px rgba(255,59,48,.35);animation:breathe 1.4s ease-in-out infinite}
+.btn-outer.processing{box-shadow:0 0 0 3px #ff9f0a,0 0 24px rgba(255,159,10,.3)}
+/* press-down haptic-like snap */
+.btn-outer.pressed{transform:scale(.94)}
+@keyframes breathe{0%,100%{transform:scale(1);box-shadow:0 0 0 3px #ff3b30,0 0 32px rgba(255,59,48,.35)}50%{transform:scale(1.04);box-shadow:0 0 0 5px #ff3b30,0 0 48px rgba(255,59,48,.45)}}
+.btn-inner{width:124px;height:124px;border-radius:50%;border:none;color:#fff;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;touch-action:manipulation;transition:background .12s,transform .12s}
+.idle .btn-inner{background:#1c1c1e}
+.recording .btn-inner{background:#ff3b30}
+.processing .btn-inner{background:#ff9f0a}
+.mic-svg{width:28px;height:28px;margin-bottom:4px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+.hint-text{font-size:13px;color:#48484a;min-height:20px;transition:color .3s}
+.recording .hint-text{color:#ff453a}
+.processing .hint-text{color:#ff9f0a}
+.actions{display:flex;gap:10px;flex-shrink:0}
+.action-btn{display:inline-flex;align-items:center;gap:6px;padding:13px 22px;border-radius:26px;border:none;font-size:15px;font-weight:590;background:#1c1c1e;color:#fff;transition:transform .15s,opacity .15s;touch-action:manipulation}
+.action-btn:active{transform:scale(.95);opacity:.8}
+.action-btn:disabled{opacity:.3;pointer-events:none}
+.action-btn.primary{background:#007aff}
+.action-btn.primary:active{opacity:.85}
+.toast{position:fixed;bottom:120px;left:50%;transform:translateX(-50%) translateY(12px);background:rgba(44,44,46,.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);color:#fff;padding:10px 22px;border-radius:22px;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:all .28s cubic-bezier(.25,.1,.25,1);z-index:100}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.unsupported{display:none;text-align:center;color:#ff3b30;font-size:15px;padding:20px 32px;line-height:1.6}
+</style></head><body>
 <div class="app">
   <div class="top-bar">
     <div class="lang-bar">
@@ -194,20 +51,10 @@
       <button class="lang-btn" data-lang="en">English</button>
     </div>
   </div>
-
-  <div class="text-area">
-    <div class="text-content placeholder" id="textDisplay"></div>
-  </div>
-
-  <p class="unsupported" id="unsupported">
-    当前浏览器不支持录音<br>请使用 Safari 打开
-  </p>
-
+  <div class="text-area"><div class="text-content placeholder" id="textDisplay"></div></div>
+  <p class="unsupported" id="unsupported">当前浏览器不支持录音<br>请使用 Safari 打开</p>
   <div class="center-area" id="centerArea" style="display:none">
-    <!-- Step 1: enable mic -->
     <button class="mic-enable-btn" id="micEnableBtn" style="display:none">启用麦克风</button>
-
-    <!-- Step 2: press-hold to record -->
     <div id="recordingUI" style="display:none">
       <div class="btn-outer idle" id="btnOuter">
         <button class="btn-inner" id="recordBtn">
@@ -221,297 +68,184 @@
       <div class="hint-text" id="hint">按住录制，松手转写</div>
     </div>
   </div>
-
   <div class="status-line" id="statusBar">加载模型中…</div>
-
+  <div class="ver">v2025.05.22-3</div>
   <div class="actions" id="actions" style="display:none">
     <button class="action-btn" id="copyBtn" disabled>
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-      复制
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制
     </button>
     <button class="action-btn primary" id="smsBtn" disabled>
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      发 iMessage
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>发 iMessage
     </button>
   </div>
 </div>
-
 <div class="toast" id="toast"></div>
-
 <script type="module">
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js';
+const VERSION = '250522-3';
 
-const textDisplay  = document.getElementById('textDisplay');
-const centerArea   = document.getElementById('centerArea');
-const micEnableBtn = document.getElementById('micEnableBtn');
-const recordingUI  = document.getElementById('recordingUI');
-const recordBtn    = document.getElementById('recordBtn');
-const btnOuter     = document.getElementById('btnOuter');
-const btnContent   = document.getElementById('btnContent');
-const btnLabel     = document.getElementById('btnLabel');
-const spinner      = document.getElementById('spinner');
-const hint         = document.getElementById('hint');
-const copyBtn      = document.getElementById('copyBtn');
-const smsBtn       = document.getElementById('smsBtn');
-const actions      = document.getElementById('actions');
-const toast        = document.getElementById('toast');
-const unsupported  = document.getElementById('unsupported');
-const statusBar    = document.getElementById('statusBar');
-const langBtns     = document.querySelectorAll('.lang-btn');
+const $ = id => document.getElementById(id);
+const tDisplay = $('textDisplay'), centerArea = $('centerArea'), micBtn = $('micEnableBtn');
+const recUI = $('recordingUI'), rBtn = $('recordBtn'), btnOuter = $('btnOuter');
+const btnContent = $('btnContent'), btnLabel = $('btnLabel'), spinner = $('spinner');
+const hint = $('hint'), copyBtn = $('copyBtn'), smsBtn = $('smsBtn'), actions = $('actions');
+const toast = $('toast'), unsupported = $('unsupported'), statusBar = $('statusBar');
+const langBtns = document.querySelectorAll('.lang-btn');
 
-const MODEL     = 'Xenova/whisper-base';
-const SMS_TO    = 'grinstimemachine@gmail.com';
+const MODEL = 'Xenova/whisper-base', SMS_TO = 'grinstimemachine@gmail.com';
 
-let transcriber   = null;
-let isRecording   = false;
-let isProcessing  = false;
-let currentText   = '';
-let currentLang   = 'zh';
-let mediaRecorder = null;
-let audioChunks   = [];
+let transcriber = null, isRecording = false, isProcessing = false;
+let currentText = '', currentLang = 'zh';
+let mediaRecorder = null, audioChunks = [];
+let micReady = false;
 
-// ── PWA ───────────────────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js');
-}
+// ── PWA ──
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 
-// ── Browser check ─────────────────────────────────────────
-if (!navigator.mediaDevices || !window.MediaRecorder) {
-  unsupported.style.display = 'block';
-  statusBar.textContent = '浏览器不支持录音';
-} else {
-  textDisplay.textContent = '';
-  textDisplay.classList.add('placeholder');
-}
+// ── Browser ──
+if(!navigator.mediaDevices||!window.MediaRecorder){unsupported.style.display='block';statusBar.textContent='浏览器不支持录音'}
+else {tDisplay.classList.add('placeholder')}
 
-// ── Load model ────────────────────────────────────────────
-env.allowLocalModels = false;
-env.useBrowserCache  = true;
+// ── Traditional → Simplified ──
+const t2s=new Map([["說","说"],["話","话"],["嗎","吗"],["麼","么"],["們","们"],["這","这"],["那","那"],["會","会"],["個","个"],["來","来"],["對","对"],["時","时"],["現","现"],["要","要"],["能","能"],["沒","没"],["過","过"],["讓","让"],["著","着"],["裡","里"],["後","后"],["開","开"],["關","关"],["頭","头"],["實","实"],["體","体"],["點","点"],["學","学"],["覺","觉"],["聽","听"],["聲","声"],["樣","样"],["種","种"],["經","经"],["機","机"],["氣","气"],["愛","爱"],["給","给"],["從","从"],["當","当"],["還","还"],["將","将"],["應","应"],["總","总"],["動","动"],["進","进"],["發","发"],["問","问"],["間","间"],["見","见"],["門","门"],["為","为"],["因","因"],["想","想"],["知","知"],["前","前"],["可","可"],["回","回"],["國","国"],["長","长"],["處","处"],["電","电"],["風","风"],["語","语"],["萬","万"],["場","场"],["邊","边"],["變","变"],["結","结"],["節","节"],["寫","写"],["媽","妈"],["認","认"],["識","识"],["記","记"],["帶","带"],["錢","钱"],["買","买"],["賣","卖"],["請","请"],["謝","谢"],["讀","读"],["誰","谁"],["錯","错"],["夠","够"],["塊","块"],["幹","干"],["幾","几"],["兩","两"],["無","无"],["與","与"],["紅","红"],["綠","绿"],["藍","蓝"],["車","车"],["飛","飞"],["馬","马"],["魚","鱼"],["鳥","鸟"],["飯","饭"],["飲","饮"]]);
+function toSimp(s){let o='';for(const c of s)o+=t2s.get(c)||c;return o}
 
-async function loadModel() {
-  statusBar.textContent = '加载模型中（首次约 75MB，之后秒开）';
-  statusBar.classList.add('loading');
-
+// ── Load model ──
+env.allowLocalModels=false;env.useBrowserCache=true;
+(async function(){
+  statusBar.textContent='加载模型中（首次约 75MB，之后秒开）';statusBar.classList.add('loading');
   transcriber = await pipeline('automatic-speech-recognition', MODEL, {
-    progress_callback: (info) => {
-      if (info.status === 'progress') {
-        const pct = info.progress ? Math.round(info.progress) : 0;
-        statusBar.textContent = `下载模型中… ${pct}%`;
-      } else if (info.status === 'done') {
-        statusBar.classList.remove('loading');
-      }
+    progress_callback: info => {
+      if(info.status==='progress') statusBar.textContent=`下载模型中… ${Math.round(info.progress||0)}%`;
+      else if(info.status==='done') statusBar.classList.remove('loading');
     }
   });
+  centerArea.style.display='';micBtn.style.display='';actions.style.display='';
+  statusBar.textContent='点击下方按钮启用麦克风';
+})();
 
-  centerArea.style.display = '';
-  micEnableBtn.style.display = '';
-  actions.style.display = '';
-  statusBar.textContent = '点击下方按钮启用麦克风';
-}
-
-// ── Step 1: Enable mic ────────────────────────────────────
-micEnableBtn.addEventListener('click', async () => {
-  micEnableBtn.textContent = '请求权限中…';
-  micEnableBtn.disabled = true;
-
+// ── Enable mic ──
+micBtn.addEventListener('click', async () => {
+  micBtn.textContent='请求权限中…';micBtn.disabled=true;
   try {
-    // trigger permission dialog once, release immediately
-    const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-    s.getTracks().forEach(t => t.stop());
-
-    micEnableBtn.style.display = 'none';
-    recordingUI.style.display = '';
-    statusBar.textContent = '就绪 — 按住按钮开始说话';
-    statusBar.classList.add('ready');
-  } catch {
-    micEnableBtn.textContent = '启用麦克风';
-    micEnableBtn.disabled = false;
-    showToast('请在弹窗中允许麦克风权限');
-  }
+    const s = await navigator.mediaDevices.getUserMedia({audio:true});
+    s.getTracks().forEach(t=>t.stop());
+    micBtn.style.display='none';recUI.style.display='';
+    statusBar.textContent='就绪 — 按住按钮开始说话';statusBar.classList.add('ready');
+    micReady=true;
+  } catch { micBtn.textContent='启用麦克风';micBtn.disabled=false;showToast('请在弹窗中允许麦克风权限') }
 });
 
-// ── Language ──────────────────────────────────────────────
-langBtns.forEach(b => {
-  b.addEventListener('click', () => {
-    currentLang = b.dataset.lang;
-    langBtns.forEach(x => x.classList.toggle('active', x.dataset.lang === currentLang));
+// ── Language ──
+langBtns.forEach(b=>b.addEventListener('click',()=>{currentLang=b.dataset.lang;langBtns.forEach(x=>x.classList.toggle('active',x.dataset.lang===currentLang))}));
+
+// ── Recording (instant visual, async mic) ──
+function startRecording(){
+  if(isRecording||isProcessing||!micReady) return;
+  // Instant feedback — button turns red immediately
+  isRecording=true;
+  btnOuter.classList.remove('idle','processing','pressed');
+  btnOuter.classList.add('recording','pressed');
+  hint.textContent='正在录制…松手完成';
+  statusBar.textContent='● 录音中';statusBar.style.color='#ff453a';
+  // Async: get mic stream (no dialog, permission already granted)
+  audioChunks=[];
+  navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+    if(!isRecording){stream.getTracks().forEach(t=>t.stop());return}
+    const mime=MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'audio/webm';
+    mediaRecorder=new MediaRecorder(stream,{mimeType:mime});
+    mediaRecorder.ondataavailable=e=>{if(e.data.size)audioChunks.push(e.data)};
+    mediaRecorder.start();
+    // Remove press snap, keep breathing
+    btnOuter.classList.remove('pressed');
+  }).catch(()=>{
+    isRecording=false;
+    btnOuter.classList.remove('recording','pressed');btnOuter.classList.add('idle');
+    showToast('无法访问麦克风');
   });
-});
-
-// ── Step 2: Press-hold recording ──────────────────────────
-async function startRecording() {
-  if (isRecording || isProcessing) return;
-
-  // get mic on press — no dialog since permission already granted
-  let stream;
-  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-  catch { showToast('无法访问麦克风'); return; }
-
-  audioChunks = [];
-  const mime = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
-  mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
-
-  mediaRecorder.ondataavailable = e => { if (e.data.size) audioChunks.push(e.data); };
-
-  mediaRecorder.start();
-  isRecording = true;
-
-  btnOuter.classList.remove('idle', 'processing');
-  btnOuter.classList.add('recording');
-  hint.textContent = '正在录制…松手完成';
-  statusBar.textContent = '● 录音中';
-  statusBar.style.color = '#ff453a';
 }
 
-function stopRecording() {
-  if (!isRecording || !mediaRecorder) return;
-
-  isRecording = false;
-  isProcessing = true;
-
-  const recorder = mediaRecorder;
-
-  recorder.onstop = async () => {
-    // release mic
-    recorder.stream.getTracks().forEach(t => t.stop());
-    btnOuter.classList.remove('recording');
-    btnOuter.classList.add('processing');
-    btnContent.style.display = 'none';
-    spinner.style.display = '';
-    hint.textContent = '转写中…';
-    statusBar.textContent = '转写中…';
-    statusBar.style.color = '#ff9f0a';
-
-    const blob = new Blob(audioChunks, { type: recorder.mimeType });
+function stopRecording(){
+  if(!isRecording) return;
+  isRecording=false;
+  // If getUserMedia hasn't completed yet
+  if(!mediaRecorder){btnOuter.classList.remove('recording','pressed');btnOuter.classList.add('idle');return}
+  isProcessing=true;
+  const recorder=mediaRecorder;
+  recorder.onstop=async()=>{
+    recorder.stream.getTracks().forEach(t=>t.stop());
+    btnOuter.classList.remove('recording');btnOuter.classList.add('processing');
+    btnContent.style.display='none';spinner.style.display='';
+    hint.textContent='转写中…';statusBar.textContent='转写中…';statusBar.style.color='#ff9f0a';
+    const blob=new Blob(audioChunks,{type:recorder.mimeType});
     await runTranscription(blob);
-
-    isProcessing = false;
-    btnOuter.classList.remove('processing');
-    btnOuter.classList.add('idle');
-    btnContent.style.display = '';
-    spinner.style.display = 'none';
-    hint.textContent = '按住录制，松手转写';
-    mediaRecorder = null;
-
-    if (currentText) {
-      // Auto-copy, then open iMessage
-      try { await navigator.clipboard.writeText(currentText); } catch {}
-      statusBar.textContent = '已复制 → 1.5s 后打开 iMessage';
-      statusBar.style.color = '#30d158';
-      await new Promise(r => setTimeout(r, 1500));
-      window.location.href = `sms:${SMS_TO}&body=${encodeURIComponent(currentText)}`;
-    } else {
-      statusBar.textContent = '按住按钮开始说话';
-      statusBar.style.color = '#48484a';
+    isProcessing=false;
+    btnOuter.classList.remove('processing');btnOuter.classList.add('idle');
+    btnContent.style.display='';spinner.style.display='none';
+    hint.textContent='按住录制，松手转写';mediaRecorder=null;
+    if(currentText){
+      try{await navigator.clipboard.writeText(currentText)}catch{}
+      statusBar.textContent='已复制 → 1.5s 后打开 iMessage';statusBar.style.color='#30d158';
+      await new Promise(r=>setTimeout(r,1500));
+      window.location.href=`sms:${SMS_TO}&body=${encodeURIComponent(currentText)}`;
+    }else{
+      statusBar.textContent='按住按钮开始说话';statusBar.style.color='#48484a';
       statusBar.classList.remove('ready');
     }
   };
-
   recorder.stop();
 }
 
-// ── Transcription ─────────────────────────────────────────
-async function runTranscription(blob) {
-  try {
-    const buf = await blob.arrayBuffer();
-    const ctx = new AudioContext();
-    let audio = await ctx.decodeAudioData(buf);
-    await ctx.close();
-    const samples = resample(audio);
-    const result = await transcriber(samples, {
-      language: currentLang,
-      task: 'transcribe',
-      chunk_length_s: 30,
-      stride_length_s: 5,
-    });
-    currentText = result.text.trim();
-  } catch (err) {
+// ── Transcription ──
+async function runTranscription(blob){
+  try{
+    const buf=await blob.arrayBuffer();const ctx=new AudioContext();
+    let audio=await ctx.decodeAudioData(buf);await ctx.close();
+    const r=await transcriber(resample(audio),{language:currentLang,task:'transcribe',chunk_length_s:30,stride_length_s:5});
+    currentText=currentLang==='zh'?toSimp(r.text.trim()):r.text.trim();
+  }catch(err){
     console.error(err);
-    try {
-      const buf = await blob.arrayBuffer();
-      const ctx = new AudioContext();
-      let audio = await ctx.decodeAudioData(buf);
-      await ctx.close();
-      const result = await transcriber(resample(audio), {
-        task: 'transcribe',
-        chunk_length_s: 30,
-        stride_length_s: 5,
-      });
-      currentText = result.text.trim();
-    } catch (e2) {
-      console.error(e2);
-      showToast('转写失败，请重试');
-    }
+    try{
+      const buf=await blob.arrayBuffer();const ctx=new AudioContext();
+      let audio=await ctx.decodeAudioData(buf);await ctx.close();
+      const r=await transcriber(resample(audio),{task:'transcribe',chunk_length_s:30,stride_length_s:5});
+      currentText=currentLang==='zh'?toSimp(r.text.trim()):r.text.trim();
+    }catch(e2){console.error(e2);showToast('转写失败，请重试')}
   }
   updateUI();
 }
-
-function resample(buf) {
-  const len = buf.length, sr = buf.sampleRate, ch = buf.numberOfChannels;
-  const mono = new Float32Array(len);
-  for (let c = 0; c < ch; c++) { const d = buf.getChannelData(c); for (let i = 0; i < len; i++) mono[i] += d[i]; }
-  if (ch > 1) for (let i = 0; i < len; i++) mono[i] /= ch;
-  if (sr === 16000) return mono;
-  const r = sr / 16000, nl = ~~(len / r), out = new Float32Array(nl);
-  for (let i = 0; i < nl; i++) { const s = i * r, f = ~~s, t = s - f; out[i] = (mono[f]||0) + ((mono[Math.min(f+1,len-1)]||0) - (mono[f]||0)) * t; }
+function resample(buf){
+  const len=buf.length,sr=buf.sampleRate,ch=buf.numberOfChannels;
+  const mono=new Float32Array(len);
+  for(let c=0;c<ch;c++){const d=buf.getChannelData(c);for(let i=0;i<len;i++)mono[i]+=d[i]}
+  if(ch>1)for(let i=0;i<len;i++)mono[i]/=ch;
+  if(sr===16000)return mono;
+  const r=sr/16000,nl=~~(len/r),out=new Float32Array(nl);
+  for(let i=0;i<nl;i++){const s=i*r,f=~~s,t=s-f;out[i]=(mono[f]||0)+((mono[Math.min(f+1,len-1)]||0)-(mono[f]||0))*t}
   return out;
 }
 
-// ── UI ────────────────────────────────────────────────────
-function updateUI() {
-  const has = currentText.length > 0;
-  copyBtn.disabled = !has;
-  smsBtn.disabled  = !has;
-  if (has) {
-    textDisplay.textContent = currentText;
-    textDisplay.classList.remove('placeholder');
-    statusBar.textContent = '已复制，正在打开 iMessage…';
-    statusBar.style.color = '#30d158';
-  } else {
-    textDisplay.textContent = '';
-    textDisplay.classList.add('placeholder');
-  }
+// ── UI ──
+function updateUI(){
+  const has=currentText.length>0;
+  copyBtn.disabled=!has;smsBtn.disabled=!has;
+  if(has){tDisplay.textContent=currentText;tDisplay.classList.remove('placeholder');statusBar.textContent='已复制，正在打开 iMessage…';statusBar.style.color='#30d158'}
+  else{tDisplay.textContent='';tDisplay.classList.add('placeholder')}
 }
+function showToast(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(toast._tid);toast._tid=setTimeout(()=>toast.classList.remove('show'),1800)}
 
-function showToast(msg) {
-  toast.textContent = msg;
-  toast.classList.add('show');
-  clearTimeout(toast._tid);
-  toast._tid = setTimeout(() => toast.classList.remove('show'), 1800);
-}
+// ── Actions ──
+async function copyText(){if(!currentText)return;try{await navigator.clipboard.writeText(currentText)}catch{const ta=document.createElement('textarea');ta.value=currentText;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta)}showToast('已复制到剪贴板')}
+function openSMS(){if(!currentText)return;window.location.href=`sms:${SMS_TO}&body=${encodeURIComponent(currentText)}`}
 
-// ── Actions ───────────────────────────────────────────────
-async function copyText() {
-  if (!currentText) return;
-  try { await navigator.clipboard.writeText(currentText); }
-  catch {
-    const ta = document.createElement('textarea');
-    ta.value = currentText; ta.style.cssText = 'position:fixed;opacity:0';
-    document.body.appendChild(ta); ta.select();
-    document.execCommand('copy'); document.body.removeChild(ta);
-  }
-  showToast('已复制到剪贴板');
-}
+// ── Events ──
+rBtn.addEventListener('pointerdown',e=>{e.preventDefault();startRecording()});
+rBtn.addEventListener('pointerup',e=>{e.preventDefault();stopRecording()});
+rBtn.addEventListener('pointerleave',()=>{if(isRecording)stopRecording()});
+rBtn.addEventListener('contextmenu',e=>e.preventDefault());
+copyBtn.addEventListener('click',copyText);smsBtn.addEventListener('click',openSMS);
+tDisplay.addEventListener('dblclick',()=>{if(currentText){currentText='';updateUI();showToast('已清除')}});
 
-function openSMS() {
-  if (!currentText) return;
-  window.location.href = `sms:${SMS_TO}&body=${encodeURIComponent(currentText)}`;
-}
-
-// ── Pointer events ────────────────────────────────────────
-recordBtn.addEventListener('pointerdown', e => { e.preventDefault(); startRecording(); });
-recordBtn.addEventListener('pointerup',   e => { e.preventDefault(); stopRecording(); });
-recordBtn.addEventListener('pointerleave', () => { if (isRecording) stopRecording(); });
-recordBtn.addEventListener('contextmenu', e => e.preventDefault());
-
-copyBtn.addEventListener('click', copyText);
-smsBtn.addEventListener('click', openSMS);
-
-textDisplay.addEventListener('dblclick', () => {
-  if (currentText) { currentText = ''; updateUI(); showToast('已清除'); }
-});
-
-loadModel();
+console.log(`VoiceClip v${VERSION}`);
 </script>
-</body>
-</html>
+</body></html>
