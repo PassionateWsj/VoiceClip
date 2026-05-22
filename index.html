@@ -4,7 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="语音转录">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="/manifest.json">
 <title>语音转录</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -178,19 +181,19 @@
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js';
 
 // ── DOM refs ──────────────────────────────────────────────
-const textDisplay  = document.getElementById('textDisplay');
-const recordBtn    = document.getElementById('recordBtn');
-const btnOuter     = document.getElementById('btnOuter');
-const btnLabel     = document.getElementById('btnLabel');
-const spinner      = document.getElementById('spinner');
-const hint         = document.getElementById('hint');
-const copyBtn      = document.getElementById('copyBtn');
-const smsBtn       = document.getElementById('smsBtn');
-const toast        = document.getElementById('toast');
-const unsupported  = document.getElementById('unsupported');
+const textDisplay   = document.getElementById('textDisplay');
+const recordBtn     = document.getElementById('recordBtn');
+const btnOuter      = document.getElementById('btnOuter');
+const btnLabel      = document.getElementById('btnLabel');
+const spinner       = document.getElementById('spinner');
+const hint          = document.getElementById('hint');
+const copyBtn       = document.getElementById('copyBtn');
+const smsBtn        = document.getElementById('smsBtn');
+const toast         = document.getElementById('toast');
+const unsupported   = document.getElementById('unsupported');
 const recordingArea = document.getElementById('recordingArea');
-const statusBar    = document.getElementById('statusBar');
-const langBtns     = document.querySelectorAll('.lang-btn');
+const statusBar     = document.getElementById('statusBar');
+const langBtns      = document.querySelectorAll('.lang-btn');
 
 // ── State ─────────────────────────────────────────────────
 let transcriber   = null;
@@ -200,9 +203,14 @@ let currentText   = '';
 let currentLang   = 'zh';
 let mediaRecorder = null;
 let audioChunks   = [];
+let audioStream   = null;   // reused across recordings
 
-// Choose model — base is good balance for mobile (≈75 MB, good Chinese)
 const MODEL = 'Xenova/whisper-small';
+
+// ── PWA ───────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
 
 // ── Browser check ─────────────────────────────────────────
 if (!navigator.mediaDevices || !window.MediaRecorder) {
@@ -236,8 +244,7 @@ async function loadModel() {
   statusBar.classList.remove('loading');
 }
 
-// Start loading immediately
-const modelPromise = loadModel();
+loadModel();
 
 // ── Language ──────────────────────────────────────────────
 langBtns.forEach(b => {
@@ -247,23 +254,23 @@ langBtns.forEach(b => {
   });
 });
 
+// ── Microphone stream (get once, reuse) ───────────────────
+async function ensureStream() {
+  if (audioStream?.active) return audioStream;
+  audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  return audioStream;
+}
+
 // ── Recording ─────────────────────────────────────────────
 async function startRecording() {
   if (isRecording || isProcessing) return;
-
-  // Wait for model if still loading
-  if (!transcriber) {
-    showToast('模型还在加载中...');
-    return;
-  }
+  if (!transcriber) { showToast('模型还在加载中...'); return; }
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = await ensureStream();
     audioChunks = [];
 
-    const mimeType = MediaRecorder.isTypeSupported('audio/mp4')
-      ? 'audio/mp4' : 'audio/webm';
-
+    const mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
     mediaRecorder = new MediaRecorder(stream, { mimeType });
 
     mediaRecorder.ondataavailable = e => {
@@ -291,10 +298,9 @@ function stopRecording() {
   isProcessing = true;
 
   const recorder = mediaRecorder;
-  const stream   = recorder.stream;
 
   recorder.onstop = async () => {
-    stream.getTracks().forEach(t => t.stop());
+    // stream tracks are kept alive for next recording
 
     btnOuter.classList.remove('recording');
     btnOuter.classList.add('processing');
@@ -321,13 +327,11 @@ function stopRecording() {
 // ── Transcription ─────────────────────────────────────────
 async function runTranscription(blob) {
   try {
-    // Decode compressed audio to AudioBuffer
-    const arrayBuf = await blob.arrayBuffer();
+    const arrayBuf  = await blob.arrayBuffer();
     const audioCtx  = new AudioContext();
     let audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
     await audioCtx.close();
 
-    // Convert to mono 16kHz Float32Array
     const samples = resampleTo16kMono(audioBuffer);
 
     const result = await transcriber(samples, {
@@ -338,9 +342,8 @@ async function runTranscription(blob) {
     currentText = result.text.trim();
   } catch (err) {
     console.error('Transcription error:', err);
-    // Fallback: try without language hint
     try {
-      const arrayBuf = await blob.arrayBuffer();
+      const arrayBuf  = await blob.arrayBuffer();
       const audioCtx  = new AudioContext();
       let audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
       await audioCtx.close();
@@ -356,13 +359,11 @@ async function runTranscription(blob) {
   updateUIState();
 }
 
-// Resample any AudioBuffer → 16kHz mono Float32Array
 function resampleTo16kMono(audioBuffer) {
   const numChannels = audioBuffer.numberOfChannels;
   const length      = audioBuffer.length;
   const sampleRate  = audioBuffer.sampleRate;
 
-  // Mix to mono
   const mono = new Float32Array(length);
   for (let c = 0; c < numChannels; c++) {
     const chData = audioBuffer.getChannelData(c);
@@ -374,14 +375,13 @@ function resampleTo16kMono(audioBuffer) {
 
   if (sampleRate === 16000) return mono;
 
-  // Simple linear resampling to 16kHz
-  const ratio = sampleRate / 16000;
+  const ratio  = sampleRate / 16000;
   const newLen = Math.floor(length / ratio);
-  const out = new Float32Array(newLen);
+  const out    = new Float32Array(newLen);
   for (let i = 0; i < newLen; i++) {
-    const srcIdx = i * ratio;
+    const srcIdx   = i * ratio;
     const srcFloor = Math.floor(srcIdx);
-    const frac = srcIdx - srcFloor;
+    const frac     = srcIdx - srcFloor;
     const a = mono[srcFloor] || 0;
     const b = mono[Math.min(srcFloor + 1, length - 1)] || 0;
     out[i] = a + (b - a) * frac;
@@ -434,7 +434,7 @@ function openSMS() {
   window.location.href = `sms:&body=${encodeURIComponent(currentText)}`;
 }
 
-// ── Pointer events (work for touch + mouse) ───────────────
+// ── Pointer events ────────────────────────────────────────
 recordBtn.addEventListener('pointerdown', e => {
   e.preventDefault();
   startRecording();
@@ -454,7 +454,6 @@ recordBtn.addEventListener('contextmenu', e => e.preventDefault());
 copyBtn.addEventListener('click', copyText);
 smsBtn.addEventListener('click', openSMS);
 
-// Double-tap text to clear
 textDisplay.addEventListener('dblclick', () => {
   if (currentText) {
     currentText = '';
