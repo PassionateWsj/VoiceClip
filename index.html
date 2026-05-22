@@ -391,10 +391,20 @@ function stopRecording() {
     btnContent.style.display = '';
     spinner.style.display = 'none';
     hint.textContent = '按住录制，松手转写';
-    statusBar.textContent = currentText ? '双击文字可清除' : '按住按钮开始说话';
-    statusBar.style.color = currentText ? '#48484a' : '';
-    statusBar.classList.remove('ready');
     mediaRecorder = null;
+
+    if (currentText) {
+      // Auto-copy, then open iMessage
+      try { await navigator.clipboard.writeText(currentText); } catch {}
+      statusBar.textContent = '已复制 → 1.5s 后打开 iMessage';
+      statusBar.style.color = '#30d158';
+      await new Promise(r => setTimeout(r, 1500));
+      window.location.href = `sms:${SMS_TO}&body=${encodeURIComponent(currentText)}`;
+    } else {
+      statusBar.textContent = '按住按钮开始说话';
+      statusBar.style.color = '#48484a';
+      statusBar.classList.remove('ready');
+    }
   };
 
   recorder.stop();
@@ -455,6 +465,8 @@ function updateUI() {
   if (has) {
     textDisplay.textContent = currentText;
     textDisplay.classList.remove('placeholder');
+    statusBar.textContent = '已复制，正在打开 iMessage…';
+    statusBar.style.color = '#30d158';
   } else {
     textDisplay.textContent = '';
     textDisplay.classList.add('placeholder');
