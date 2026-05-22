@@ -269,7 +269,6 @@ let currentText   = '';
 let currentLang   = 'zh';
 let mediaRecorder = null;
 let audioChunks   = [];
-let audioStream   = null;
 
 // ── PWA ───────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
@@ -316,7 +315,10 @@ micEnableBtn.addEventListener('click', async () => {
   micEnableBtn.disabled = true;
 
   try {
-    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // trigger permission dialog once, release immediately
+    const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+    s.getTracks().forEach(t => t.stop());
+
     micEnableBtn.style.display = 'none';
     recordingUI.style.display = '';
     statusBar.textContent = '就绪 — 按住按钮开始说话';
@@ -337,12 +339,17 @@ langBtns.forEach(b => {
 });
 
 // ── Step 2: Press-hold recording ──────────────────────────
-function startRecording() {
-  if (isRecording || isProcessing || !audioStream?.active) return;
+async function startRecording() {
+  if (isRecording || isProcessing) return;
+
+  // get mic on press — no dialog since permission already granted
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { showToast('无法访问麦克风'); return; }
 
   audioChunks = [];
   const mime = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
-  mediaRecorder = new MediaRecorder(audioStream, { mimeType: mime });
+  mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
 
   mediaRecorder.ondataavailable = e => { if (e.data.size) audioChunks.push(e.data); };
 
@@ -365,6 +372,8 @@ function stopRecording() {
   const recorder = mediaRecorder;
 
   recorder.onstop = async () => {
+    // release mic
+    recorder.stream.getTracks().forEach(t => t.stop());
     btnOuter.classList.remove('recording');
     btnOuter.classList.add('processing');
     btnContent.style.display = 'none';
