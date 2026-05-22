@@ -224,7 +224,7 @@ let mediaRecorder = null;
 let audioChunks   = [];
 let audioStream   = null;
 
-const MODEL = 'Xenova/whisper-small';
+const MODEL = 'Xenova/whisper-base';
 
 // ── PWA ───────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
@@ -242,7 +242,7 @@ env.allowLocalModels = false;
 env.useBrowserCache  = true;
 
 async function loadModel() {
-  statusBar.textContent = '加载模型中（首次约250MB，下次秒开）...';
+  statusBar.textContent = '加载模型中（首次约75MB，下次秒开）...';
   statusBar.classList.add('loading');
 
   transcriber = await pipeline('automatic-speech-recognition', MODEL, {
